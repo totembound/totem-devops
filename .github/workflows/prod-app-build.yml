@@ -1,0 +1,54 @@
+name: PROD app build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_version:
+        type: string
+        description: Build version
+        required: true
+      source_branch:
+        type: string
+        description: Source branch
+        required: true
+      
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      GENERATE_SOURCEMAP: false
+      REACT_APP_ENV: Production
+      REACT_APP_URL: https://totembound.com
+      REACT_APP_CDN_URL: https://cdn.totembound.com
+      REACT_APP_API_ENDPOINT: https://api.totembound.com/v1
+      REACT_APP_IPFS_GATEWAY_URL: https://ipfs.io/ipfs
+      REACT_APP_VERSION: ${{ github.event.inputs.build_version }}
+
+    steps:
+    - name: Setup Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    - name: Checkout source branch
+      uses: actions/checkout@v3
+      with:
+        repository: totembound/totem-app
+        ref: ${{ github.event.inputs.source_branch }}
+        token: ${{ secrets.PAT }}
+        path: totem-app
+    - name: Install
+      working-directory: ./totem-app
+      run: npm install
+    - name: Build
+      working-directory: ./totem-app
+      run: npm run build
+    - name: Zip release
+      working-directory: ./totem-app
+      run: zip -r release-${{ github.event.inputs.build_version }}.zip ./build
+    - name: Push to S3
+      working-directory: ./totem-app
+      run: aws s3 sync . s3://totembound-releases/totem-app --exclude "*" --include "release-${{ github.event.inputs.build_version }}.zip"
+      

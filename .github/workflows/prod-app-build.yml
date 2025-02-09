@@ -65,6 +65,8 @@ jobs:
 
     - name: Build
       working-directory: ./totem-app
+      env:
+        CI: false
       run: npm run build
 
     - name: Zip release

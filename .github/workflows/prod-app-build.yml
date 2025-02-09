@@ -28,26 +28,49 @@ jobs:
       REACT_APP_VERSION: ${{ github.event.inputs.build_version }}
 
     steps:
-    - name: Setup Node
-      uses: actions/setup-node@v3
+    - name: Checkout contracts repo
+      uses: actions/checkout@v3
       with:
-        node-version: '18'
-    - name: Checkout source branch
+        repository: totembound/totem-contracts
+        path: totem-contracts
+
+    - name: Checkout app branch
       uses: actions/checkout@v3
       with:
         repository: totembound/totem-app
         ref: ${{ github.event.inputs.source_branch }}
         token: ${{ secrets.PAT }}
         path: totem-app
+
+    - name: Setup Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    - name: Install contracts dependencies
+      working-directory: ./totem-contracts
+      run: npm install
+    
+    - name: Compile Contracts
+      working-directory: ./totem-contracts
+      run: npx hardhat compile
+
+    - name: Export Contract ABIs
+      working-directory: ./totem-contracts
+      run: npx hardhat export-abi
+
     - name: Install
       working-directory: ./totem-app
       run: npm install
+
     - name: Build
       working-directory: ./totem-app
       run: npm run build
+
     - name: Zip release
       working-directory: ./totem-app
       run: zip -r release-${{ github.event.inputs.build_version }}.zip ./build
+
     - name: Push to S3
       working-directory: ./totem-app
       run: aws s3 sync . s3://totembound-releases/totem-app --exclude "*" --include "release-${{ github.event.inputs.build_version }}.zip"

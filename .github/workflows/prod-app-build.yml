@@ -24,7 +24,7 @@ jobs:
       REACT_APP_URL: https://totembound.com
       REACT_APP_CDN_URL: https://cdn.totembound.com
       REACT_APP_API_ENDPOINT: https://api.totembound.com/v1
-      REACT_APP_IPFS_GATEWAY_URL: https://ipfs.io/ipfs
+      REACT_APP_IPFS_GATEWAY_URL: https://ipfs.totembound.com/ipfs/
       REACT_APP_VERSION: ${{ github.event.inputs.build_version }}
 
     steps:

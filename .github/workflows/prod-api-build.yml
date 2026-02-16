@@ -1,0 +1,61 @@
+name: PROD API build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_version:
+        type: string
+        description: Build version
+        required: true
+      source_branch:
+        type: string
+        description: Source branch
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+
+    steps:
+    - name: Checkout API repo
+      uses: actions/checkout@v3
+      with:
+        repository: totembound/totem-api
+        ref: ${{ github.event.inputs.source_branch }}
+        token: ${{ secrets.PAT }}
+        path: totem-api
+
+    - name: Setup Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      working-directory: ./totem-api
+      run: npm install
+
+    - name: Run tests
+      working-directory: ./totem-api
+      run: npm test
+
+    - name: Build Lambda package
+      working-directory: ./totem-api
+      run: npm run build
+
+    - name: Package Lambda zip
+      working-directory: ./totem-api
+      env:
+        VERSION: ${{ github.event.inputs.build_version }}
+      run: npm run package
+
+    - name: Push to S3
+      working-directory: ./totem-api
+      run: |
+        aws s3 cp packages/totembound-api-${{ github.event.inputs.build_version }}.zip \
+          s3://totembound-releases/totem-api/totembound-api-${{ github.event.inputs.build_version }}.zip
+        aws s3 cp packages/totembound-api-${{ github.event.inputs.build_version }}.zip \
+          s3://totembound-releases/totem-api/totembound-api-latest.zip

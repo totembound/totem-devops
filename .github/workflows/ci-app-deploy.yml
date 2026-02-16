@@ -24,6 +24,6 @@ jobs:
       run: unzip release-${{ github.event.inputs.release_version }}.zip
     - name: Sync to app S3
       working-directory: ./totem-app
-      run: aws s3 sync build s3://totemboundci-app
+      run: aws s3 sync dist s3://totemboundci-app
     - name: Refresh Cloudfront
       run: aws cloudfront create-invalidation --distribution-id E30D3Q6UOWWMO4 --paths "/*"

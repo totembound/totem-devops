@@ -8,6 +8,9 @@ on:
         description: Release version
         required: true
       
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,6 +27,6 @@ jobs:
       run: unzip release-${{ github.event.inputs.release_version }}.zip
     - name: Sync to app S3
       working-directory: ./totem-app
-      run: aws s3 sync build s3://totembound-app
+      run: aws s3 sync dist s3://totembound-app
     - name: Refresh Cloudfront
       run: aws cloudfront create-invalidation --distribution-id E3TBCP5P18U4EE --paths "/*"

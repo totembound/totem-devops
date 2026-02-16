@@ -11,7 +11,10 @@ on:
         type: string
         description: Source branch
         required: true
-      
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,21 +22,13 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: us-east-1
-      GENERATE_SOURCEMAP: false
-      REACT_APP_ENV: Production
-      REACT_APP_URL: https://totembound.com
-      REACT_APP_CDN_URL: https://cdn.totembound.com
-      REACT_APP_API_ENDPOINT: https://api.totembound.com/v1
-      REACT_APP_IPFS_GATEWAY_URL: https://ipfs.totembound.com/ipfs/
-      REACT_APP_VERSION: ${{ github.event.inputs.build_version }}
+      VITE_API_URL: https://api.totembound.com/v1
+      VITE_VERSION: ${{ github.event.inputs.build_version }}
+      VITE_PUBLIC_POSTHOG_KEY: phc_mdSXJGtJ83Ygd07QPt7h3Z7RBuDc0KNwADpzJkB3sBT
+      VITE_PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
+      VITE_PUBLIC_POSTHOG_AUTOCAPTURE: 'false'
 
     steps:
-    - name: Checkout contracts repo
-      uses: actions/checkout@v3
-      with:
-        repository: totembound/totem-contracts
-        path: totem-contracts
-
     - name: Checkout app branch
       uses: actions/checkout@v3
       with:
@@ -42,26 +37,40 @@ jobs:
         token: ${{ secrets.PAT }}
         path: totem-app
 
+    - name: Checkout API (for OpenAPI spec)
+      uses: actions/checkout@v3
+      with:
+        repository: totembound/totem-api
+        ref: ${{ github.event.inputs.source_branch }}
+        token: ${{ secrets.PAT }}
+        path: totem-api
+
     - name: Setup Node
       uses: actions/setup-node@v3
       with:
         node-version: '20'
 
-    - name: Install contracts dependencies
-      working-directory: ./totem-contracts
-      run: npm install
-    
-    - name: Compile Contracts
-      working-directory: ./totem-contracts
-      run: npx hardhat compile
-
-    - name: Export Contract ABIs
-      working-directory: ./totem-contracts
-      run: npx hardhat export-abi
+    - name: Generate OpenAPI spec
+      working-directory: ./totem-api
+      run: |
+        npm install --omit=dev swagger-jsdoc
+        node scripts/export-openapi.js ../totem-app/public/docs/openapi.json
 
     - name: Install
       working-directory: ./totem-app
       run: npm install
+
+    - name: Check types
+      working-directory: ./totem-app
+      run: npm run check-types
+
+    - name: Run ESLint
+      working-directory: ./totem-app
+      run: npm run lint
+
+    - name: Run tests
+      working-directory: ./totem-app
+      run: npm run test:ci
 
     - name: Build
       working-directory: ./totem-app
@@ -71,9 +80,8 @@ jobs:
 
     - name: Zip release
       working-directory: ./totem-app
-      run: zip -r release-${{ github.event.inputs.build_version }}.zip ./build
+      run: zip -r release-${{ github.event.inputs.build_version }}.zip ./dist
 
     - name: Push to S3
       working-directory: ./totem-app
       run: aws s3 sync . s3://totembound-releases/totem-app --exclude "*" --include "release-${{ github.event.inputs.build_version }}.zip"
-      

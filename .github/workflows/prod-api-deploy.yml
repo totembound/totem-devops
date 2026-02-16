@@ -1,0 +1,37 @@
+name: PROD API deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        type: string
+        description: Release version
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+
+    steps:
+    - name: Update Lambda function code
+      run: |
+        aws lambda update-function-code \
+          --function-name totembound-api \
+          --s3-bucket totembound-releases \
+          --s3-key totem-api/totembound-api-${{ github.event.inputs.release_version }}.zip
+
+    - name: Wait for update to complete
+      run: |
+        aws lambda wait function-updated \
+          --function-name totembound-api
+
+    - name: Verify deployment
+      run: |
+        aws lambda get-function \
+          --function-name totembound-api \
+          --query 'Configuration.{State:State,LastModified:LastModified,CodeSize:CodeSize}' \
+          --output table

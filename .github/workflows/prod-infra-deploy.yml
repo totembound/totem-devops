@@ -32,7 +32,7 @@ env:
   AWS_REGION: us-east-1
   PREFIX: totembound
   S3_BUCKET: totembound-releases
-  ENVIRONMENT: prod
+  ENVIRONMENT: production
 
 jobs:
   deploy:
@@ -62,7 +62,7 @@ jobs:
         STACK_NAME="${{ env.PREFIX }}-core-stack"
         TEMPLATE="totem-api/infrastructure/cloudformation/core.yml"
 
-        # Prod params — Environment=prod, no separate file yet
+        # Prod params — Environment=production, no separate file yet
         PARAMS="ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }}"
 
         if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then

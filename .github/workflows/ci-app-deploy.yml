@@ -7,12 +7,12 @@ on:
         type: string
         description: Release version
         required: true
-      
+
 permissions:
   contents: read
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID2 }}
@@ -20,13 +20,16 @@ jobs:
       AWS_REGION: us-west-2
 
     steps:
-    - name: Get from S3
+    - name: Download release from S3
       run: aws s3 sync s3://totemboundci-releases . --exclude "*" --include "totem-app/release-${{ github.event.inputs.release_version }}.zip"
+
     - name: Unzip release
       working-directory: ./totem-app
       run: unzip release-${{ github.event.inputs.release_version }}.zip
-    - name: Sync to app S3
+
+    - name: Deploy to app S3 bucket
       working-directory: ./totem-app
-      run: aws s3 sync dist s3://totemboundci-app
-    - name: Refresh Cloudfront
+      run: aws s3 sync build s3://totemboundci-app --delete
+
+    - name: Invalidate CloudFront cache
       run: aws cloudfront create-invalidation --distribution-id E30D3Q6UOWWMO4 --paths "/*"

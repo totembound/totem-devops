@@ -11,6 +11,10 @@ on:
         type: string
         description: Source branch
         required: true
+        default: main
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -22,7 +26,7 @@ jobs:
 
     steps:
     - name: Checkout API repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: totembound/totem-api
         ref: ${{ github.event.inputs.source_branch }}
@@ -30,13 +34,17 @@ jobs:
         path: totem-api
 
     - name: Setup Node
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '20'
 
     - name: Install dependencies
       working-directory: ./totem-api
-      run: npm install
+      run: npm ci
+
+    - name: Run lint
+      working-directory: ./totem-api
+      run: npm run lint
 
     - name: Run tests
       working-directory: ./totem-api
@@ -52,7 +60,7 @@ jobs:
         VERSION: ${{ github.event.inputs.build_version }}
       run: npm run package
 
-    - name: Push to S3
+    - name: Upload to S3
       working-directory: ./totem-api
       run: |
         aws s3 cp packages/totembound-api-${{ github.event.inputs.build_version }}.zip \

@@ -1,0 +1,291 @@
+name: CI infra deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      stack:
+        type: choice
+        description: Which CloudFormation stack to deploy
+        required: true
+        options:
+          - core
+          - cognito
+          - api
+          - iot
+          - all
+      release_version:
+        type: string
+        description: Release version (used as AppVersion for api stack)
+        required: true
+      source_branch:
+        type: string
+        description: Branch containing CloudFormation templates
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID2 }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY2 }}
+  AWS_REGION: us-west-2
+  PREFIX: totemboundci
+  S3_BUCKET: totemboundci-releases
+  ENVIRONMENT: staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout API repo (CloudFormation templates)
+      uses: actions/checkout@v4
+      with:
+        repository: totembound/totem-api
+        ref: ${{ github.event.inputs.source_branch }}
+        token: ${{ secrets.PAT }}
+        path: totem-api
+
+    # ── Core stack ──────────────────────────────────────────
+    - name: Upload core template to S3
+      if: inputs.stack == 'core' || inputs.stack == 'all'
+      run: |
+        aws s3 cp totem-api/infrastructure/cloudformation/core.yml \
+          s3://${{ env.S3_BUCKET }}/totem-api/cloudformation/core-${{ inputs.release_version }}.yml
+        aws s3 cp totem-api/infrastructure/cloudformation/core.yml \
+          s3://${{ env.S3_BUCKET }}/totem-api/cloudformation/core-latest.yml
+
+    - name: Deploy core stack
+      if: inputs.stack == 'core' || inputs.stack == 'all'
+      run: |
+        STACK_NAME="${{ env.PREFIX }}-core-stack"
+        TEMPLATE="totem-api/infrastructure/cloudformation/core.yml"
+        PARAMS_FILE="totem-api/infrastructure/params-core-staging.json"
+
+        # Build --parameters from JSON file
+        PARAMS="ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }}"
+        for key in $(jq -r 'keys[]' "$PARAMS_FILE"); do
+          val=$(jq -r --arg k "$key" '.[$k]' "$PARAMS_FILE")
+          PARAMS="$PARAMS ParameterKey=$key,ParameterValue=$val"
+        done
+
+        # Check if stack exists
+        if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
+          echo "Updating existing stack: $STACK_NAME"
+          aws cloudformation update-stack \
+            --stack-name "$STACK_NAME" \
+            --template-body "file://$TEMPLATE" \
+            --parameters $PARAMS \
+            --capabilities CAPABILITY_NAMED_IAM \
+            || { echo "No updates needed (or error)"; }
+          aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" \
+            || echo "Wait returned non-zero (stack may have had no updates)"
+        else
+          echo "Creating new stack: $STACK_NAME"
+          aws cloudformation create-stack \
+            --stack-name "$STACK_NAME" \
+            --template-body "file://$TEMPLATE" \
+            --parameters $PARAMS \
+            --capabilities CAPABILITY_NAMED_IAM
+          aws cloudformation wait stack-create-complete --stack-name "$STACK_NAME"
+        fi
+
+    - name: Print core stack outputs
+      if: inputs.stack == 'core' || inputs.stack == 'all'
+      run: |
+        aws cloudformation describe-stacks \
+          --stack-name "${{ env.PREFIX }}-core-stack" \
+          --query 'Stacks[0].{Status:StackStatus,Outputs:Outputs}' \
+          --output table
+
+    # ── Cognito stack ───────────────────────────────────────
+    - name: Upload cognito template to S3
+      if: inputs.stack == 'cognito' || inputs.stack == 'all'
+      run: |
+        aws s3 cp totem-api/infrastructure/cloudformation/cognito.yml \
+          s3://${{ env.S3_BUCKET }}/totem-api/cloudformation/cognito-${{ inputs.release_version }}.yml
+        aws s3 cp totem-api/infrastructure/cloudformation/cognito.yml \
+          s3://${{ env.S3_BUCKET }}/totem-api/cloudformation/cognito-latest.yml
+
+    - name: Deploy cognito stack
+      if: inputs.stack == 'cognito' || inputs.stack == 'all'
+      run: |
+        STACK_NAME="${{ env.PREFIX }}-cognito-stack"
+        TEMPLATE="totem-api/infrastructure/cloudformation/cognito.yml"
+        PARAMS_FILE="totem-api/infrastructure/params-cognito-staging.json"
+
+        PARAMS="ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }}"
+        for key in $(jq -r 'keys[]' "$PARAMS_FILE"); do
+          val=$(jq -r --arg k "$key" '.[$k]' "$PARAMS_FILE")
+          PARAMS="$PARAMS ParameterKey=$key,ParameterValue=$val"
+        done
+
+        if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
+          echo "Updating existing stack: $STACK_NAME"
+          aws cloudformation update-stack \
+            --stack-name "$STACK_NAME" \
+            --template-body "file://$TEMPLATE" \
+            --parameters $PARAMS \
+            --capabilities CAPABILITY_NAMED_IAM \
+            || { echo "No updates needed (or error)"; }
+          aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" \
+            || echo "Wait returned non-zero (stack may have had no updates)"
+        else
+          echo "Creating new stack: $STACK_NAME"
+          aws cloudformation create-stack \
+            --stack-name "$STACK_NAME" \
+            --template-body "file://$TEMPLATE" \
+            --parameters $PARAMS \
+            --capabilities CAPABILITY_NAMED_IAM
+          aws cloudformation wait stack-create-complete --stack-name "$STACK_NAME"
+        fi
+
+    - name: Print cognito stack outputs
+      if: inputs.stack == 'cognito' || inputs.stack == 'all'
+      run: |
+        aws cloudformation describe-stacks \
+          --stack-name "${{ env.PREFIX }}-cognito-stack" \
+          --query 'Stacks[0].{Status:StackStatus,Outputs:Outputs}' \
+          --output table
+
+    # ── API stack ───────────────────────────────────────────
+    - name: Upload api template to S3
+      if: inputs.stack == 'api' || inputs.stack == 'all'
+      run: |
+        aws s3 cp totem-api/infrastructure/cloudformation/api.yml \
+          s3://${{ env.S3_BUCKET }}/totem-api/cloudformation/api-${{ inputs.release_version }}.yml
+        aws s3 cp totem-api/infrastructure/cloudformation/api.yml \
+          s3://${{ env.S3_BUCKET }}/totem-api/cloudformation/api-latest.yml
+
+    - name: Deploy api stack
+      if: inputs.stack == 'api' || inputs.stack == 'all'
+      run: |
+        STACK_NAME="${{ env.PREFIX }}-api-stack"
+        TEMPLATE="totem-api/infrastructure/cloudformation/api.yml"
+        PARAMS_FILE="totem-api/infrastructure/params-api-staging.json"
+
+        # Start with Environment + AppVersion (not in param file)
+        PARAMS="ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }}"
+        PARAMS="$PARAMS ParameterKey=AppVersion,ParameterValue=${{ inputs.release_version }}"
+
+        # Add remaining params from file
+        for key in $(jq -r 'keys[]' "$PARAMS_FILE"); do
+          val=$(jq -r --arg k "$key" '.[$k]' "$PARAMS_FILE")
+          PARAMS="$PARAMS ParameterKey=$key,ParameterValue=$val"
+        done
+
+        if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
+          echo "Updating existing stack: $STACK_NAME"
+          aws cloudformation update-stack \
+            --stack-name "$STACK_NAME" \
+            --template-body "file://$TEMPLATE" \
+            --parameters $PARAMS \
+            --capabilities CAPABILITY_NAMED_IAM \
+            || { echo "No updates needed (or error)"; }
+          aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" \
+            || echo "Wait returned non-zero (stack may have had no updates)"
+        else
+          echo "Creating new stack: $STACK_NAME"
+          aws cloudformation create-stack \
+            --stack-name "$STACK_NAME" \
+            --template-body "file://$TEMPLATE" \
+            --parameters $PARAMS \
+            --capabilities CAPABILITY_NAMED_IAM
+          aws cloudformation wait stack-create-complete --stack-name "$STACK_NAME"
+        fi
+
+    - name: Force API Gateway redeployment
+      if: inputs.stack == 'api' || inputs.stack == 'all'
+      run: |
+        REST_API_ID=$(aws cloudformation describe-stacks \
+          --stack-name "${{ env.PREFIX }}-api-stack" \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayId`].OutputValue' \
+          --output text 2>/dev/null || echo "")
+        if [ -n "$REST_API_ID" ] && [ "$REST_API_ID" != "None" ]; then
+          echo "Forcing API Gateway deployment for $REST_API_ID"
+          aws apigateway create-deployment \
+            --rest-api-id "$REST_API_ID" \
+            --stage-name api \
+            --description "Post-CFN deploy ${{ inputs.release_version }}"
+          aws apigateway flush-stage-cache \
+            --rest-api-id "$REST_API_ID" \
+            --stage-name api 2>/dev/null || true
+          echo "API Gateway redeployed and cache flushed"
+        else
+          echo "Could not find REST API ID — skipping redeployment"
+        fi
+
+    - name: Print api stack outputs
+      if: inputs.stack == 'api' || inputs.stack == 'all'
+      run: |
+        aws cloudformation describe-stacks \
+          --stack-name "${{ env.PREFIX }}-api-stack" \
+          --query 'Stacks[0].{Status:StackStatus,Outputs:Outputs}' \
+          --output table
+
+    # ── IoT stack ───────────────────────────────────────────
+    - name: Upload iot template to S3
+      if: inputs.stack == 'iot' || inputs.stack == 'all'
+      run: |
+        aws s3 cp totem-api/infrastructure/cloudformation/iot.yml \
+          s3://${{ env.S3_BUCKET }}/totem-api/cloudformation/iot-${{ inputs.release_version }}.yml
+        aws s3 cp totem-api/infrastructure/cloudformation/iot.yml \
+          s3://${{ env.S3_BUCKET }}/totem-api/cloudformation/iot-latest.yml
+
+    - name: Deploy iot stack
+      if: inputs.stack == 'iot' || inputs.stack == 'all'
+      run: |
+        STACK_NAME="${{ env.PREFIX }}-iot-stack"
+        TEMPLATE="totem-api/infrastructure/cloudformation/iot.yml"
+
+        # Fetch cross-stack outputs from core and cognito stacks
+        COGNITO_POOL_ID=$(aws cloudformation describe-stacks \
+          --stack-name "${{ env.PREFIX }}-cognito-stack" \
+          --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
+          --output text)
+        COGNITO_CLIENT_ID=$(aws cloudformation describe-stacks \
+          --stack-name "${{ env.PREFIX }}-cognito-stack" \
+          --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+          --output text)
+        LAMBDA_ROLE_ARN=$(aws cloudformation describe-stacks \
+          --stack-name "${{ env.PREFIX }}-core-stack" \
+          --query 'Stacks[0].Outputs[?OutputKey==`LambdaExecutionRoleArn`].OutputValue' \
+          --output text)
+
+        echo "CognitoUserPoolId=$COGNITO_POOL_ID"
+        echo "CognitoUserPoolClientId=$COGNITO_CLIENT_ID"
+        echo "LambdaExecutionRoleArn=$LAMBDA_ROLE_ARN"
+
+        PARAMS="ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }}"
+        PARAMS="$PARAMS ParameterKey=CognitoUserPoolId,ParameterValue=$COGNITO_POOL_ID"
+        PARAMS="$PARAMS ParameterKey=CognitoUserPoolClientId,ParameterValue=$COGNITO_CLIENT_ID"
+        PARAMS="$PARAMS ParameterKey=LambdaExecutionRoleArn,ParameterValue=$LAMBDA_ROLE_ARN"
+
+        if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
+          echo "Updating existing stack: $STACK_NAME"
+          aws cloudformation update-stack \
+            --stack-name "$STACK_NAME" \
+            --template-body "file://$TEMPLATE" \
+            --parameters $PARAMS \
+            --capabilities CAPABILITY_NAMED_IAM \
+            || { echo "No updates needed (or error)"; }
+          aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" \
+            || echo "Wait returned non-zero (stack may have had no updates)"
+        else
+          echo "Creating new stack: $STACK_NAME"
+          aws cloudformation create-stack \
+            --stack-name "$STACK_NAME" \
+            --template-body "file://$TEMPLATE" \
+            --parameters $PARAMS \
+            --capabilities CAPABILITY_NAMED_IAM
+          aws cloudformation wait stack-create-complete --stack-name "$STACK_NAME"
+        fi
+
+    - name: Print iot stack outputs
+      if: inputs.stack == 'iot' || inputs.stack == 'all'
+      run: |
+        aws cloudformation describe-stacks \
+          --stack-name "${{ env.PREFIX }}-iot-stack" \
+          --query 'Stacks[0].{Status:StackStatus,Outputs:Outputs}' \
+          --output table

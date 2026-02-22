@@ -11,6 +11,7 @@ on:
         type: string
         description: Source branch
         required: true
+        default: main
 
 permissions:
   contents: read
@@ -29,16 +30,16 @@ jobs:
       VITE_PUBLIC_POSTHOG_AUTOCAPTURE: 'false'
 
     steps:
-    - name: Checkout app branch
-      uses: actions/checkout@v3
+    - name: Checkout app repo
+      uses: actions/checkout@v4
       with:
         repository: totembound/totem-app
         ref: ${{ github.event.inputs.source_branch }}
         token: ${{ secrets.PAT }}
         path: totem-app
 
-    - name: Checkout API (for OpenAPI spec)
-      uses: actions/checkout@v3
+    - name: Checkout API repo (for OpenAPI spec)
+      uses: actions/checkout@v4
       with:
         repository: totembound/totem-api
         ref: ${{ github.event.inputs.source_branch }}
@@ -46,7 +47,7 @@ jobs:
         path: totem-api
 
     - name: Setup Node
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '20'
 
@@ -56,9 +57,9 @@ jobs:
         npm install --omit=dev swagger-jsdoc
         node scripts/export-openapi.js ../totem-app/public/docs/openapi.json
 
-    - name: Install
+    - name: Install dependencies
       working-directory: ./totem-app
-      run: npm install
+      run: npm ci
 
     - name: Check types
       working-directory: ./totem-app
@@ -74,13 +75,11 @@ jobs:
 
     - name: Build
       working-directory: ./totem-app
-      env:
-        CI: false
       run: npm run build
 
     - name: Zip release
       working-directory: ./totem-app
-      run: zip -r release-${{ github.event.inputs.build_version }}.zip ./dist
+      run: zip -r release-${{ github.event.inputs.build_version }}.zip ./build
 
     - name: Push to S3
       working-directory: ./totem-app

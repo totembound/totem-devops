@@ -23,6 +23,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID2 }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY2 }}
       AWS_REGION: us-west-2
+      ENVIRONMENT: staging
       VITE_API_URL: https://api.totembound-test.net/v1
       VITE_VERSION: ${{ github.event.inputs.build_version }}
       VITE_PUBLIC_POSTHOG_KEY: phc_i3QhD2inrH3bRG73rzSNp1evRWwTooJRS6CvQfObSuH
@@ -54,7 +55,7 @@ jobs:
     - name: Generate OpenAPI spec
       working-directory: ./totem-api
       run: |
-        npm install --omit=dev swagger-jsdoc
+        npm install swagger-jsdoc
         node scripts/export-openapi.js ../totem-app/public/docs/openapi.json
 
     - name: Install dependencies

@@ -257,10 +257,14 @@ jobs:
         echo "CognitoUserPoolClientId=$COGNITO_CLIENT_ID"
         echo "LambdaExecutionRoleArn=$LAMBDA_ROLE_ARN"
 
+        # IoT browser policy is created outside CloudFormation — pass its name
+        IOT_BROWSER_POLICY="${{ env.PREFIX }}-browser-iot-policy"
+
         PARAMS="ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }}"
         PARAMS="$PARAMS ParameterKey=CognitoUserPoolId,ParameterValue=$COGNITO_POOL_ID"
         PARAMS="$PARAMS ParameterKey=CognitoUserPoolClientId,ParameterValue=$COGNITO_CLIENT_ID"
         PARAMS="$PARAMS ParameterKey=LambdaExecutionRoleArn,ParameterValue=$LAMBDA_ROLE_ARN"
+        PARAMS="$PARAMS ParameterKey=IoTBrowserPolicyName,ParameterValue=$IOT_BROWSER_POLICY"
 
         if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
           echo "Updating existing stack: $STACK_NAME"

@@ -55,7 +55,7 @@ jobs:
     - name: Generate OpenAPI spec
       working-directory: ./totem-api
       run: |
-        npm install --omit=dev swagger-jsdoc
+        npm install swagger-jsdoc
         node scripts/export-openapi.js ../totem-app/public/docs/openapi.json
 
     - name: Install dependencies

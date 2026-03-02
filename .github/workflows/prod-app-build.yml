@@ -31,7 +31,7 @@ jobs:
       ENVIRONMENT: production
       VITE_API_URL: https://api.totembound.com/v1
       VITE_VERSION: ${{ github.event.inputs.build_version }}
-      VITE_PUBLIC_POSTHOG_KEY: phc_mdSXJGtJ83Ygd07QPt7h3Z7RBuDc0KNwADpzJkB3sBT
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY_PROD }}
       VITE_PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
       VITE_PUBLIC_POSTHOG_AUTOCAPTURE: 'false'
 

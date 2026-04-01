@@ -73,14 +73,21 @@ jobs:
         # Check if stack exists
         if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
           echo "Updating existing stack: $STACK_NAME"
-          aws cloudformation update-stack \
+          UPDATE_OUTPUT=$(aws cloudformation update-stack \
             --stack-name "$STACK_NAME" \
             --template-body "file://$TEMPLATE" \
             --parameters $PARAMS \
-            --capabilities CAPABILITY_NAMED_IAM \
-            || { echo "No updates needed (or error)"; }
-          aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" \
-            || echo "Wait returned non-zero (stack may have had no updates)"
+            --capabilities CAPABILITY_NAMED_IAM 2>&1) && {
+            echo "$UPDATE_OUTPUT"
+            aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME"
+          } || {
+            if echo "$UPDATE_OUTPUT" | grep -q "No updates are to be performed"; then
+              echo "No updates needed — stack is already up to date"
+            else
+              echo "$UPDATE_OUTPUT" >&2
+              exit 1
+            fi
+          }
         else
           echo "Creating new stack: $STACK_NAME"
           aws cloudformation create-stack \
@@ -123,14 +130,21 @@ jobs:
 
         if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
           echo "Updating existing stack: $STACK_NAME"
-          aws cloudformation update-stack \
+          UPDATE_OUTPUT=$(aws cloudformation update-stack \
             --stack-name "$STACK_NAME" \
             --template-body "file://$TEMPLATE" \
             --parameters $PARAMS \
-            --capabilities CAPABILITY_NAMED_IAM \
-            || { echo "No updates needed (or error)"; }
-          aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" \
-            || echo "Wait returned non-zero (stack may have had no updates)"
+            --capabilities CAPABILITY_NAMED_IAM 2>&1) && {
+            echo "$UPDATE_OUTPUT"
+            aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME"
+          } || {
+            if echo "$UPDATE_OUTPUT" | grep -q "No updates are to be performed"; then
+              echo "No updates needed — stack is already up to date"
+            else
+              echo "$UPDATE_OUTPUT" >&2
+              exit 1
+            fi
+          }
         else
           echo "Creating new stack: $STACK_NAME"
           aws cloudformation create-stack \
@@ -177,14 +191,21 @@ jobs:
 
         if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
           echo "Updating existing stack: $STACK_NAME"
-          aws cloudformation update-stack \
+          UPDATE_OUTPUT=$(aws cloudformation update-stack \
             --stack-name "$STACK_NAME" \
             --template-body "file://$TEMPLATE" \
             --parameters $PARAMS \
-            --capabilities CAPABILITY_NAMED_IAM \
-            || { echo "No updates needed (or error)"; }
-          aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" \
-            || echo "Wait returned non-zero (stack may have had no updates)"
+            --capabilities CAPABILITY_NAMED_IAM 2>&1) && {
+            echo "$UPDATE_OUTPUT"
+            aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME"
+          } || {
+            if echo "$UPDATE_OUTPUT" | grep -q "No updates are to be performed"; then
+              echo "No updates needed — stack is already up to date"
+            else
+              echo "$UPDATE_OUTPUT" >&2
+              exit 1
+            fi
+          }
         else
           echo "Creating new stack: $STACK_NAME"
           aws cloudformation create-stack \
@@ -268,14 +289,21 @@ jobs:
 
         if aws cloudformation describe-stacks --stack-name "$STACK_NAME" > /dev/null 2>&1; then
           echo "Updating existing stack: $STACK_NAME"
-          aws cloudformation update-stack \
+          UPDATE_OUTPUT=$(aws cloudformation update-stack \
             --stack-name "$STACK_NAME" \
             --template-body "file://$TEMPLATE" \
             --parameters $PARAMS \
-            --capabilities CAPABILITY_NAMED_IAM \
-            || { echo "No updates needed (or error)"; }
-          aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" \
-            || echo "Wait returned non-zero (stack may have had no updates)"
+            --capabilities CAPABILITY_NAMED_IAM 2>&1) && {
+            echo "$UPDATE_OUTPUT"
+            aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME"
+          } || {
+            if echo "$UPDATE_OUTPUT" | grep -q "No updates are to be performed"; then
+              echo "No updates needed — stack is already up to date"
+            else
+              echo "$UPDATE_OUTPUT" >&2
+              exit 1
+            fi
+          }
         else
           echo "Creating new stack: $STACK_NAME"
           aws cloudformation create-stack \

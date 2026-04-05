@@ -36,6 +36,7 @@ jobs:
       VITE_PUBLIC_POSTHOG_AUTOCAPTURE: 'false'
       VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID_STAGING }}
       VITE_TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID_STAGING }}
+      VITE_DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID_STAGING }}
 
     steps:
     - name: Checkout app repo

@@ -33,6 +33,11 @@ jobs:
       run: aws s3 sync build s3://totemboundci-admin-app --delete
 
     - name: Invalidate CloudFront cache
-      # TODO: replace with the staging admin CloudFront distribution ID once the
-      # distribution is created (see task #10 AWS deploy guide).
-      run: aws cloudfront create-invalidation --distribution-id ${{ secrets.ADMIN_CF_DISTRIBUTION_ID_STAGING }} --paths "/*"
+      env:
+        DIST: ${{ secrets.ADMIN_CF_DISTRIBUTION_ID_STAGING }}
+      run: |
+        if [ -z "$DIST" ]; then
+          echo "ADMIN_CF_DISTRIBUTION_ID_STAGING not set — skipping invalidation (S3 sync already succeeded)"
+        else
+          aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
+        fi

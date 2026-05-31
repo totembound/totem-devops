@@ -33,6 +33,22 @@ jobs:
         aws lambda wait function-updated \
           --function-name totembound-api
 
+    # The stats-snapshot Lambda shares the same artifact (different handler).
+    # Best-effort: it's created by prod-infra-deploy, so skip if it doesn't exist yet.
+    - name: Update stats-snapshot Lambda code
+      run: |
+        FN=totembound-stats-snapshot
+        if aws lambda get-function --function-name "$FN" >/dev/null 2>&1; then
+          aws lambda update-function-code \
+            --function-name "$FN" \
+            --s3-bucket totembound-releases \
+            --s3-key totem-api/totembound-api-${{ github.event.inputs.release_version }}.zip
+          aws lambda wait function-updated --function-name "$FN"
+          echo "Updated $FN"
+        else
+          echo "$FN not found yet (created by prod-infra-deploy) — skipping"
+        fi
+
     - name: Verify deployment
       run: |
         aws lambda get-function \

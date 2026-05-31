@@ -1,0 +1,74 @@
+name: PROD admin build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_version:
+        type: string
+        description: Build version
+        required: true
+      source_branch:
+        type: string
+        description: Admin source branch
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      ENVIRONMENT: production
+      VITE_API_URL: https://api.totembound.com/v1
+      VITE_VERSION: ${{ github.event.inputs.build_version }}
+      # Optional external dashboard deep-links (blank = hidden in the UI).
+      VITE_CLOUDWATCH_DASHBOARD_URL: ${{ secrets.ADMIN_CLOUDWATCH_DASHBOARD_URL_PROD }}
+      VITE_POSTHOG_DASHBOARD_URL: ${{ secrets.ADMIN_POSTHOG_DASHBOARD_URL_PROD }}
+
+    steps:
+    # totem-admin is a PRIVATE repo — checkout needs the org PAT secret.
+    - name: Checkout admin repo
+      uses: actions/checkout@v4
+      with:
+        repository: totembound/totem-admin
+        ref: ${{ github.event.inputs.source_branch }}
+        token: ${{ secrets.PAT }}
+        path: totem-admin
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      working-directory: ./totem-admin
+      run: npm ci
+
+    - name: Check types
+      working-directory: ./totem-admin
+      run: npm run check-types
+
+    - name: Run ESLint
+      working-directory: ./totem-admin
+      run: npm run lint
+
+    - name: Run tests
+      working-directory: ./totem-admin
+      run: npm run test:ci
+
+    - name: Build
+      working-directory: ./totem-admin
+      run: npm run build
+
+    - name: Zip release
+      working-directory: ./totem-admin
+      run: zip -r release-${{ github.event.inputs.build_version }}.zip ./build
+
+    - name: Push to S3
+      working-directory: ./totem-admin
+      run: aws s3 sync . s3://totembound-releases/totem-admin --exclude "*" --include "release-${{ github.event.inputs.build_version }}.zip"

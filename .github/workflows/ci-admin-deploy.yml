@@ -1,0 +1,43 @@
+name: CI admin deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        type: string
+        description: Release version
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID2 }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY2 }}
+      AWS_REGION: us-west-2
+      ENVIRONMENT: staging
+
+    steps:
+    - name: Download release from S3
+      run: aws s3 sync s3://totemboundci-releases . --exclude "*" --include "totem-admin/release-${{ github.event.inputs.release_version }}.zip"
+
+    - name: Unzip release
+      working-directory: ./totem-admin
+      run: unzip release-${{ github.event.inputs.release_version }}.zip
+
+    - name: Deploy to admin S3 bucket
+      working-directory: ./totem-admin
+      run: aws s3 sync build s3://totemboundci-admin-app --delete
+
+    - name: Invalidate CloudFront cache
+      env:
+        DIST: ${{ secrets.ADMIN_CF_DISTRIBUTION_ID_STAGING }}
+      run: |
+        if [ -z "$DIST" ]; then
+          echo "ADMIN_CF_DISTRIBUTION_ID_STAGING not set — skipping invalidation (S3 sync already succeeded)"
+        else
+          aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
+        fi

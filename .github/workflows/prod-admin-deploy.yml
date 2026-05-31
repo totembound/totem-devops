@@ -1,0 +1,43 @@
+name: PROD admin deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        type: string
+        description: Release version
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      ENVIRONMENT: production
+
+    steps:
+    - name: Download release from S3
+      run: aws s3 sync s3://totembound-releases . --exclude "*" --include "totem-admin/release-${{ github.event.inputs.release_version }}.zip"
+
+    - name: Unzip release
+      working-directory: ./totem-admin
+      run: unzip release-${{ github.event.inputs.release_version }}.zip
+
+    - name: Deploy to admin S3 bucket
+      working-directory: ./totem-admin
+      run: aws s3 sync build s3://totembound-admin-app --delete
+
+    - name: Invalidate CloudFront cache
+      env:
+        DIST: ${{ secrets.ADMIN_CF_DISTRIBUTION_ID_PROD }}
+      run: |
+        if [ -z "$DIST" ]; then
+          echo "ADMIN_CF_DISTRIBUTION_ID_PROD not set — skipping invalidation (S3 sync already succeeded)"
+        else
+          aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
+        fi

@@ -33,6 +33,22 @@ jobs:
         aws lambda wait function-updated \
           --function-name totemboundci-api
 
+    # The stats-snapshot Lambda shares the same artifact (different handler).
+    # Best-effort: it's created by ci-infra-deploy, so skip if it doesn't exist yet.
+    - name: Update stats-snapshot Lambda code
+      run: |
+        FN=totemboundci-stats-snapshot
+        if aws lambda get-function --function-name "$FN" >/dev/null 2>&1; then
+          aws lambda update-function-code \
+            --function-name "$FN" \
+            --s3-bucket totemboundci-releases \
+            --s3-key totem-api/totembound-api-${{ github.event.inputs.release_version }}.zip
+          aws lambda wait function-updated --function-name "$FN"
+          echo "Updated $FN"
+        else
+          echo "$FN not found yet (created by ci-infra-deploy) — skipping"
+        fi
+
     - name: Verify deployment
       run: |
         aws lambda get-function \

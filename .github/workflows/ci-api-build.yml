@@ -27,7 +27,7 @@ jobs:
 
     steps:
     - name: Checkout API repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: totembound/totem-api
         ref: ${{ github.event.inputs.source_branch }}
@@ -35,9 +35,9 @@ jobs:
         path: totem-api
 
     - name: Setup Node
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '22'
 
     - name: Install dependencies
       working-directory: ./totem-api

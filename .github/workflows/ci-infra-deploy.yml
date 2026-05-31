@@ -40,7 +40,7 @@ jobs:
 
     steps:
     - name: Checkout API repo (CloudFormation templates)
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: totembound/totem-api
         ref: ${{ github.event.inputs.source_branch }}

@@ -58,7 +58,7 @@ jobs:
     - name: Setup Node
       uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '22'
 
     - name: Generate OpenAPI spec
       working-directory: ./totem-api

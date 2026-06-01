@@ -165,7 +165,11 @@ jobs:
       if: inputs.stack == 'api' || inputs.stack == 'all'
       run: |
         STACK_NAME="${{ env.PREFIX }}-api-stack"
-        TEMPLATE="totem-api/infrastructure/cloudformation/api.yml"
+
+        # api.yml exceeds the 51,200-byte --template-body limit, so deploy from
+        # the S3 copy uploaded above via --template-url (1 MB limit). Bucket must
+        # be in the same region as the stack (us-east-1).
+        TEMPLATE_URL="https://${{ env.S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/totem-api/cloudformation/api-${{ inputs.release_version }}.yml"
 
         # Prod: Environment + AppVersion, Stripe params will need prod param file later
         PARAMS="ParameterKey=Environment,ParameterValue=${{ env.ENVIRONMENT }}"
@@ -186,7 +190,7 @@ jobs:
           echo "Updating existing stack: $STACK_NAME"
           UPDATE_OUTPUT=$(aws cloudformation update-stack \
             --stack-name "$STACK_NAME" \
-            --template-body "file://$TEMPLATE" \
+            --template-url "$TEMPLATE_URL" \
             --parameters $PARAMS \
             --capabilities CAPABILITY_NAMED_IAM 2>&1) && {
             echo "$UPDATE_OUTPUT"
@@ -203,7 +207,7 @@ jobs:
           echo "Creating new stack: $STACK_NAME"
           aws cloudformation create-stack \
             --stack-name "$STACK_NAME" \
-            --template-body "file://$TEMPLATE" \
+            --template-url "$TEMPLATE_URL" \
             --parameters $PARAMS \
             --capabilities CAPABILITY_NAMED_IAM
           aws cloudformation wait stack-create-complete --stack-name "$STACK_NAME"
